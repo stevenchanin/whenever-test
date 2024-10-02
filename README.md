@@ -50,7 +50,7 @@ You can write a spec such as (RSpec was used in this example):
 require 'spec_helper'
 
 describe 'Whenever Schedule' do
-  before do
+  before(:context) do
     load 'Rakefile' # Makes sure rake tasks are loaded so you can assert in rake jobs
   end
 
