@@ -34,9 +34,11 @@ Suppose you have a schedule such as:
 ```ruby
 # config/schedule.rb
 job_type :curl, 'curl :task'
+job_type :thor, "cd :path && :environment_variable=:environment :bundle_command thor :task :output"
 
 every :hour { runner 'TimeoutOffers.perform_async' }
 every :minute { curl 'http://myapp.com/cron-alive' }
+every 1.day, at: ["3am"] { thor "tasks:db:backup" }
 
 if @environment == 'staging'
   every :day { rake 'db_sync:import' }
@@ -52,12 +54,28 @@ require 'spec_helper'
 describe 'Whenever Schedule' do
   before(:context) do
     load 'Rakefile' # Makes sure rake tasks are loaded so you can assert in rake jobs
+    # If your Thor tasks aren't loaded by your Rakefile, you might need something like:
+    # Dir["./lib/tasks/**/*.thor"].each { |f| load f }
+  end
+
+  def commands_in_thor_files
+    result = Set.new
+
+    Thor.descendants.each do |klass|
+      base = klass.to_s.underscore.split('/').join(':')
+      klass.all_tasks.each_key do |command|
+        result << "#{base}:#{command}"
+      end
+    end
+
+    result
   end
 
   it 'makes sure `runner` statements exist' do
     schedule = Whenever::Test::Schedule.new(file: 'config/schedule.rb')
 
     expect(schedule.jobs[:runner].count).to eq(2)
+    expect(schedule.jobs[:thor].count).to eq(1)
 
     # Executes the actual ruby statement to make sure all constants and methods exist:
     schedule.jobs[:runner].each do |job|
@@ -71,6 +89,14 @@ describe 'Whenever Schedule' do
 
     # Makes sure the rake task is defined:
     expect(Rake::Task.task_defined?(job[:task])).to be(true)
+  end
+
+  it 'makes sure `thor` commands exist' do
+    all_thor_commands = commands_in_thor_files
+
+    schedule.jobs[:thor].each do |job|
+      expect(all_thor_commands).to include(job[:task])
+    end
   end
 
   it 'makes sure cron alive monitor is registered in minute basis' do
