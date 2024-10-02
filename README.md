@@ -57,10 +57,12 @@ describe 'Whenever Schedule' do
   it 'makes sure `runner` statements exist' do
     schedule = Whenever::Test::Schedule.new(file: 'config/schedule.rb')
 
-    assert_equal 2, schedule.jobs[:runner].count
+    expect(schedule.jobs[:runner].count).to eq(2)
 
     # Executes the actual ruby statement to make sure all constants and methods exist:
-    schedule.jobs[:runner].each { |job| instance_eval job[:task] }
+    schedule.jobs[:runner].each do |job|
+      expect { instance_eval job[:task] }.not_to raise_error
+    end
   end
 
   it 'makes sure `rake` statements exist' do
@@ -68,15 +70,15 @@ describe 'Whenever Schedule' do
     schedule = Whenever::Test::Schedule.new(vars: { environment: 'staging' })
 
     # Makes sure the rake task is defined:
-    assert Rake::Task.task_defined?(schedule.jobs[:rake].first[:task])
+    expect(Rake::Task.task_defined?(job[:task])).to be(true)
   end
 
   it 'makes sure cron alive monitor is registered in minute basis' do
     schedule = Whenever::Test::Schedule.new(file: fixture)
 
-    assert_equal 'http://myapp.com/cron-alive', schedule.jobs[:curl].first[:task]
-    assert_equal 'curl :task', schedule.jobs[:curl].first[:command]
-    assert_equal [:minute], schedule.jobs[:curl].first[:every]
+    expect(schedule.jobs[:curl].first[:task]).to eq('http://myapp.com/cron-alive')
+    expect(schedule.jobs[:curl].first[:command]).to eq('curl :task')
+    expect(schedule.jobs[:curl].first[:every]).to eq([:minute])
   end
 end
 ```
